@@ -40,5 +40,6 @@ Makefile*
 *.obj
 *.out
 *.m51
+init
 cyglink.txt
 DMD_P18E
