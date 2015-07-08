@@ -9,6 +9,7 @@
 // Called from the Init_Device() function
 void Timer_Init()
 {
+    TCON      = 0x50;
     TMOD      = 0x20;
     CKCON     = 0x08;
     TH1       = 0x96;
@@ -66,7 +67,7 @@ void Oscillator_Init()
 
 void Interrupts_Init()
 {
-    IE        = 0x50;
+    IE        = 0xD0;
 }
 
 // Initialization function for device,

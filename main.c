@@ -156,24 +156,24 @@ void strobeSelect(char divFactor)
 		D2_COUNTER = 1;	// Data Midle
 		D3_COUNTER = 0;	// Data High
 		break;
-	case 5:
+	/*case 5:
 		D0_COUNTER = 1;	// Data Low
 		D1_COUNTER = 0;	// Data Midle
 		D2_COUNTER = 1;	// Data Midle
 		D3_COUNTER = 0;	// Data High
-		break;
+		break;*/
 	case 6:
 		D0_COUNTER = 0;	// Data Low
 		D1_COUNTER = 0;	// Data Midle
 		D2_COUNTER = 1;	// Data Midle
 		D3_COUNTER = 0;	// Data High
 		break;
-	case 7:
+	/*case 7:
 		D0_COUNTER = 1;	// Data Low
 		D1_COUNTER = 1;	// Data Midle
 		D2_COUNTER = 0;	// Data Midle
 		D3_COUNTER = 0;	// Data High
-		break;
+		break;*/
 	case 8:
 		D0_COUNTER = 0;	// Data Low
 		D1_COUNTER = 1;	// Data Midle
@@ -205,6 +205,44 @@ void gainSetCode(char Code)
 	CS_AMPL = 0;	// De-select AD8366ACPZ
 }
 
+// Program ADF4351BCPZ for phase and frequency change
+void ADF4351_synth(char INT, char FRAK, int PHASE)
+{
+    // REG5
+    SPI_send(0x00);
+    SPI_send(0x58);
+    SPI_send(0x00);
+    SPI_send(0x05);
+    // REG4
+    SPI_send(0x00);
+    SPI_send(0xBF);
+    SPI_send(0xA4);
+    SPI_send(0xFC);
+    // REG3
+    SPI_send(0x00);
+    SPI_send(0x81);
+    SPI_send(0x03);
+    SPI_send(0xEB);
+    // REG2
+    SPI_send(0x0D);
+    SPI_send(0x01);
+    SPI_send(0x0E);
+    SPI_send(0x42);
+    // REG1
+    if(INT > 75) {  // prescaler 8/9
+        SPI_send(0x18);
+    } else {    // prescaler 4/5
+        SPI_send(0x10);
+    }
+    SPI_send(PHASE >> 1);
+    SPI_send( (PHASE << 7) | (0x05) );
+    SPI_send(0x01);
+    // REG0
+    SPI_send(0x00);
+    SPI_send(INT >> 1);
+    SPI_send( (INT << 7) | (FRAK >> 5) );
+    SPI_send(FRAK << 3);
+}
 void main(void)
 {
 	Init_Device();
