@@ -1,7 +1,27 @@
+//------------------------------------------------------------------------------
+// main.c
+//------------------------------------------------------------------------------
+// Author: BulSV
+// Controller: C8051F330A
+// Synthesizers: ADF4002BCPZ, ADF4351BCPZ
+// Operational Amplifier: AD8366ACPZ
+// Counter: MC74HCT160D (К155ИЕ9)
+//------------------------------------------------------------------------------
+// Program Description:
+//
+
+//------------------------------------------------------------------------------
+// Includes
+//------------------------------------------------------------------------------
+
 #include <c8051f410.h>
 #include <stdio.h>
 
 extern void Init_Device(void);
+
+//------------------------------------------------------------------------------
+// Global CONSTANTS
+//------------------------------------------------------------------------------
 
 // SPI config pins for control ADF4002BCPZ, ADF4351BCPZ and AD8366ACPZ
 sbit CS_AMPL = P1^2;	// Chip select for AD8366ACPZ (NSS) (output)
@@ -31,6 +51,52 @@ sbit SPI_LED = P0^7;	// Indicate SPI work (active high) (output)
 sbit COUNTER_LED = P2^6;// Indicate counter switching (active high) (output)
 
 #define SYSCLK 24500000 // SYSCLK frequency in Hz
+
+//------------------------------------------------------------------------------
+// Function PROTOTYPES
+//------------------------------------------------------------------------------
+
+// Configure Timer0 to delay <ms> milliseconds
+void Timer0_ms (unsigned ms);
+// Configure Timer0 to delay <us> microseconds
+void Timer0_us (unsigned us);
+// SPI send subrouting
+void SPI_send(char Data);
+// SPI lock detect of ADF4351BCPZ subrouting
+void SPI_LD_4351(void) interrupt 6;
+// Program ADF4002BCPZ as 128-divider
+void ADF4002_divider(void);
+// Strobe Selector (MC74HCT160D)
+void strobeSelect(char divFactor);
+// Gain set (AD8366ACPZ)
+void gainSetCode(char Code);
+// Program ADF4351BCPZ for phase and frequency change
+void ADF4351_synth(char INT, char FRAK, int PHASE);
+
+//------------------------------------------------------------------------------
+// main() Routine
+//------------------------------------------------------------------------------
+
+void main(void)
+{
+	Init_Device();
+
+	// LEDs init
+	POWER_ON = 1;
+	LOCK_4351 = 0;
+
+	// De-select chip for SPI (init)
+	CS_AMPL = 0;
+	LE_4351 = 0;
+	LE_4002 = 0;
+
+	ADF4002_divider();
+	
+	while(1)
+	{
+		
+	}
+}
 
 // Configure Timer0 to delay <ms> milliseconds
 void Timer0_ms (unsigned ms)
@@ -87,7 +153,7 @@ void SPI_send(char Data)
 void SPI_LD_4351(void) interrupt 6
 {
 	if(SPI0DAT & 1) {
-		LOCK_4351 = 1;
+		LOCK_4351 = 1;  // Indicate Lock Detect of ADF4351BCPZ
 	}
 
 	SPIF = 0;	// Clear SPI flag
@@ -120,7 +186,7 @@ void ADF4002_divider(void)
 	SPI_send(0x01);
 	Timer0_ms(1);
 
-	LE_4002 = 0;	// De-select ADF4002BCPZ
+	LE_4002 = 0;	// Deselect ADF4002BCPZ
 }
 
 // Strobe Selector (MC74HCT160D)
@@ -202,32 +268,39 @@ void gainSetCode(char Code)
 	SPI_send(Code);	// Setting differential output A gain
 	SPI_send(Code);	// Setting differential output B gain
 	Timer0_ms(1);
-	CS_AMPL = 0;	// De-select AD8366ACPZ
+	CS_AMPL = 0;	// Deselect AD8366ACPZ
 }
 
 // Program ADF4351BCPZ for phase and frequency change
 void ADF4351_synth(char INT, char FRAK, int PHASE)
 {
+    LOCK_4351 = 0;  // Clear Lock Detect indication of ADF4351BCPZ
+    LE_4351 = 1;    // Select ADF4351BCPZ
+    Timer0_ms(1);
     // REG5
     SPI_send(0x00);
     SPI_send(0x58);
     SPI_send(0x00);
     SPI_send(0x05);
+    Timer0_ms(1);
     // REG4
     SPI_send(0x00);
     SPI_send(0xBF);
     SPI_send(0xA4);
     SPI_send(0xFC);
+    Timer0_ms(1);
     // REG3
     SPI_send(0x00);
     SPI_send(0x81);
     SPI_send(0x03);
     SPI_send(0xEB);
+    Timer0_ms(1);
     // REG2
     SPI_send(0x0D);
     SPI_send(0x01);
     SPI_send(0x0E);
     SPI_send(0x42);
+    Timer0_ms(1);
     // REG1
     if(INT > 75) {  // prescaler 8/9
         SPI_send(0x18);
@@ -237,29 +310,13 @@ void ADF4351_synth(char INT, char FRAK, int PHASE)
     SPI_send(PHASE >> 1);
     SPI_send( (PHASE << 7) | (0x05) );
     SPI_send(0x01);
+    Timer0_ms(1);
     // REG0
     SPI_send(0x00);
     SPI_send(INT >> 1);
     SPI_send( (INT << 7) | (FRAK >> 5) );
     SPI_send(FRAK << 3);
+    Timer0_ms(1);
+    LE_4351 = 0;    // Deselect ADF4351BCPZ
 }
-void main(void)
-{
-	Init_Device();
 
-	// LEDs init
-	POWER_ON = 1;
-	LOCK_4351 = 0;
-
-	// De-select chip for SPI (init)
-	CS_AMPL = 0;
-	LE_4351 = 0;
-	LE_4002 = 0;
-
-	ADF4002_divider();
-	
-	while(1)
-	{
-		
-	}
-}
