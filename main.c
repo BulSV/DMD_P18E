@@ -5,7 +5,7 @@
 // Controller: C8051F330A
 // Synthesizers: ADF4002BCPZ, ADF4351BCPZ
 // Operational Amplifier: AD8366ACPZ
-// Counter: MC74HCT160D (–ö155–ò–ï9)
+// Counter: MC74HCT160D ( 155»≈9)
 //------------------------------------------------------------------------------
 // Program Description:
 //
@@ -63,7 +63,7 @@ void Timer0_us (unsigned us);
 // SPI send subrouting
 void SPI_send(char Data);
 // SPI lock detect of ADF4351BCPZ subrouting
-void SPI_LD_4351(void) interrupt 6;
+void SPI_LD_4351(void);
 // Program ADF4002BCPZ as 128-divider
 void ADF4002_divider(void);
 // Strobe Selector (MC74HCT160D)
