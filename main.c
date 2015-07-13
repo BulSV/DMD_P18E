@@ -52,6 +52,79 @@ sbit COUNTER_LED = P2^6;// Indicate counter switching (active high) (output)
 
 #define SYSCLK 24500000 // SYSCLK frequency in Hz
 
+char freq;		// Frequency number for ADF4351BCPZ
+char phase;		// Phase for ADF4351BCPZ
+char divFactor;	// Strobe select factor for MC74HCT160D
+char gainIQ;	// Gain code for AD8366ACPZ
+
+char readData[8];	// Read data buffer
+
+bit wasRead = 0;	// Read data flag
+
+// INT ratio table for low frequency (ADF4351BCPZ)
+unsigned char INT_LOW[112] = {
+74, 74, 74, 74, 74, 74, 74, 74, 75, 75,
+75, 75, 75, 75, 75, 75, 75, 75, 75, 75,
+75, 75, 75, 75, 76, 76, 76, 76, 76, 76,
+76, 76, 76, 76, 76, 76, 76, 76, 76, 76,
+77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+77, 77, 77, 77, 77, 77, 78, 78, 78, 78,
+78, 78, 78, 78, 78, 78, 78, 78, 78, 78,
+78, 78, 79, 79, 79, 79, 79, 79, 79, 79,
+79, 79, 79, 79, 79, 79, 79, 79, 80, 80,
+80, 80, 80, 80, 80, 80, 80, 80, 80, 80,
+80, 80, 80, 80, 81, 81, 81, 81, 81, 81,
+81, 81
+};
+
+// FRAC ratio table for low frequency (ADF4351BCPZ)
+unsigned char FRAC_LOW[112] = {
+80, 90, 100, 110, 120, 130, 140, 150, 0, 10,
+20, 30, 40, 50, 60, 70, 80, 90, 100, 110,
+120, 130, 140, 150, 0, 10, 20, 30, 40, 50,
+60, 70, 80, 90, 100, 110, 120, 130, 140, 150,
+0, 10, 20, 30, 40, 50, 60, 70, 80, 90,
+100, 110, 120, 130, 140, 150, 0, 10, 20, 30,
+40, 50, 60, 70, 80, 90, 100, 110, 120, 130,
+140, 150, 0, 10, 20, 30, 40, 50, 60, 70,
+80, 90, 100, 110, 120, 130, 140, 150, 0, 10,
+20, 30, 40, 50, 60, 70, 80, 90, 100, 110,
+120, 130, 140, 150, 0, 10, 20, 30, 40, 50,
+60, 70
+};
+
+// INT ratio table for high frequency (ADF4351BCPZ)
+unsigned char INT_HIGH[112] = {
+81, 82, 82, 82, 82, 82, 82, 82, 82, 82,
+82, 82, 82, 82, 82, 82, 83, 83, 83, 83,
+83, 83, 83, 83, 83, 83, 83, 83, 83, 83,
+84, 84, 84, 84, 84, 84, 84, 84, 84, 84,
+84, 84, 84, 84, 84, 85, 85, 85, 85, 85,
+85, 85, 85, 85, 85, 85, 85, 85, 85, 86,
+86, 86, 86, 86, 86, 86, 86, 86, 86, 86,
+86, 86, 86, 86, 87, 87, 87, 87, 87, 87,
+87, 87, 87, 87, 87, 87, 87, 87, 88, 88,
+88, 88, 88, 88, 88, 88, 88, 88, 88, 88,
+88, 88, 88, 89, 89, 89, 89, 89, 89, 89,
+89, 89
+};
+
+// FRAC ratio table for high frequency (ADF4351BCPZ)
+unsigned char FRAC_HIGH[112] = {
+152, 3, 14, 25, 36, 47, 58, 69, 80, 91,
+102, 113, 124, 135, 146, 157, 8, 19, 30, 41,
+52, 63, 74, 85, 96, 107, 118, 129, 140, 151,
+2, 13, 24, 35, 46, 57, 68, 79, 90, 101,
+112, 123, 134, 145, 156, 7, 18, 29, 40, 51,
+62, 73, 84, 95, 106, 117, 128, 139, 150, 1,
+12, 23, 34, 45, 56, 67, 78, 89, 100, 111,
+122, 133, 144, 155, 6, 17, 28, 39, 50, 61,
+72, 83, 94, 105, 116, 127, 138, 149, 0, 11,
+22, 33, 44, 55, 66, 77, 88, 99, 110, 121,
+132, 143, 154, 5, 16, 27, 38, 49, 60, 71,
+82, 93
+};
+
 //------------------------------------------------------------------------------
 // Function PROTOTYPES
 //------------------------------------------------------------------------------
@@ -72,6 +145,22 @@ void strobeSelect(char divFactor);
 void gainSetCode(char Code);
 // Program ADF4351BCPZ for phase and frequency change
 void ADF4351_synth(char INT, char FRAK, int PHASE);
+// Write to UART0
+void writeToUART0(char* Data, unsigned char bytes);
+// Read from UART0
+void readFromUART0(void);
+// Write information to PC
+void infoSend(void);
+// Read commands from PC
+void readFromPC(unsigned char bytes);
+// Decode commands from PC
+void decode(void);
+// RES MON handler (write to ADF4351BCPZ)
+void resMonHandler(void);
+// F-Strobe handler(write to MC74HCT160D)
+void fStrobeHandler(void);
+// Gain I, Q handler (write to AD8366ACPZ)
+void gainIQHandler(void);
 
 //------------------------------------------------------------------------------
 // main() Routine
@@ -320,3 +409,106 @@ void ADF4351_synth(char INT, char FRAK, int PHASE)
     LE_4351 = 0;    // Deselect ADF4351BCPZ
 }
 
+// Write to UART0
+void writeToUART0(char* Data, unsigned char bytes)
+{
+	unsigned char i;
+	EA = 0;
+	ES0 = 0;
+	for(i = 0; i < bytes; ++i) {
+		TI0 = 0;
+		SBUF0 = Data[i];
+
+		while(TI0 == 0);	// Wait for end data transmit
+	}
+	TI0 = 0;
+	ES0 = 1;
+	EA = 1;
+}
+
+// Read from UART0
+void readFromUART0(void) interrupt 4
+{
+	RI0 = 0;
+	readFromPC(8);
+	RI0 = 0;
+}
+
+// Write information to PC
+void infoSend(void)
+{
+	char writeData[8];
+
+	writeData[0] = 0x55;
+	writeData[1] = freq;
+	writeData[2] = phase;
+	writeData[3] = divFactor;
+	writeData[4] = gainIQ;
+	writeData[5] = 0x00;
+	writeData[6] = 0x00;
+	writeData[7] = 0xAA;
+
+	writeToUART0(writeData, 8);
+}
+
+// Read commands from PC
+void readFromPC(unsigned char bytes)
+{
+	unsigned char i;
+	for(i = 0; i < bytes; ++i)
+	{
+		RI0 = 0;
+		readData[i] = SBUF0;
+		while(RI0 == 0);
+	}
+
+	wasRead = 1;
+	RI0 = 0;
+}
+
+// Decode commands from PC
+void decode(void)
+{
+	if(readData[0] != 0x55 &&
+		readData[7] != 0xAA) {
+		return;
+	}
+
+	switch(readData[1]) {
+	case 0x01:
+		resMonHandler();
+		break;
+	case 0x02:
+		fStrobeHandler();
+		break;
+	case 0x03:
+		gainIQHandler();
+		break;
+	}
+}
+
+// RES MON handler (write to ADF4351BCPZ)
+void resMonHandler(void)
+{
+	freq = readData[2];
+	phase = readData[3];
+	if(freq & 0x80) {
+		ADF4351_synth(INT_HIGH[freq & 0x7F], FRAC_HIGH[freq & 0x7F], phase);
+	} else {
+		ADF4351_synth(INT_LOW[freq], FRAC_LOW[freq], phase);
+	}
+}
+
+// F-Strobe handler(write to MC74HCT160D)
+void fStrobeHandler(void)
+{
+	divFactor = readData[2];
+	strobeSelect(divFactor);
+}
+
+// Gain I, Q handler (write to AD8366ACPZ)
+void gainIQHandler(void)
+{
+	gainIQ = readData[2];
+	gainSetCode(gainIQ);
+}

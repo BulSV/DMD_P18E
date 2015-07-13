@@ -323,7 +323,7 @@ MDIChild=False
 PctWidth=1000000
 MRUFloatCX=300
 MRUFloatCY=180
-MRUHorzDockCX=1825
+MRUHorzDockCX=1835
 MRUHorzDockCY=130
 MRUVertDockCX=300
 MRUVertDockCY=180
@@ -1591,10 +1591,10 @@ MDIChild=False
 PctWidth=1000000
 MRUFloatCX=241
 MRUFloatCY=48
-MRUHorzDockCX=1826
+MRUHorzDockCX=1836
 MRUHorzDockCY=29
 MRUVertDockCX=80
-MRUVertDockCY=780
+MRUVertDockCY=840
 MRUDockingState=0
 DockingStyle=61440
 TypeID=14947
@@ -1779,7 +1779,7 @@ Buttons=FJAIAAAAAAHJAIAAAAAACNAIAAAAAAJBAIAAAAAAGNAIAAAAAAMBAIAAAAAAAAAAAAAAAADH
 BarID=59399
 XPos=195
 YPos=28
-MRUWidth=1215
+MRUWidth=502
 Docking=True
 MRUDockID=59419
 MRUDockLeftPos=195
@@ -1854,16 +1854,25 @@ ptn_Child1=MainFrame
 ptn_Child2=ChildFrames
 [WorkState_v1_1.Frames.MainFrame]
 WindowPlacement=MCAAAAAACAAAAAAADAAAAAAAPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPALAAAAAAIOAAAAAAAFGAAAAAOMDAAAAA
-Title=Silicon Laboratories IDE - [C8051F410_defs.h]
+Title=Silicon Laboratories IDE - [main.c]
 [WorkState_v1_1.Frames.ChildFrames]
 ptn_Child1=Document-0
+ptn_Child2=Document-1
 [WorkState_v1_1.Frames.ChildFrames.Document-0]
 ptn_Child1=ViewFrame-0
 [WorkState_v1_1.Frames.ChildFrames.Document-0.ViewFrame-0]
 DocPathName=C8051F410_defs.h
 DocumentString=Source File
 DocTemplateIndex=0
-WindowPlacement=MCAAAAAACAAAAAAADAAAAAAAPPPPPPPPPPPPPPPPMPPPPPPPCOPPPPPPAAAAAAAAAAAAAAAAJEFAAAAADBCAAAAA
+WindowPlacement=MCAAAAAAAAAAAAAABAAAAAAAPPPPPPPPPPPPPPPPMPPPPPPPCOPPPPPPAAAAAAAAAAAAAAAAJEFAAAAADBCAAAAA
+IsActiveChildFrame=False
+[WorkState_v1_1.Frames.ChildFrames.Document-1]
+ptn_Child1=ViewFrame-0
+[WorkState_v1_1.Frames.ChildFrames.Document-1.ViewFrame-0]
+DocPathName=main.c
+DocumentString=Source File
+DocTemplateIndex=0
+WindowPlacement=MCAAAAAACAAAAAAADAAAAAAAPPPPPPPPPPPPPPPPMPPPPPPPCOPPPPPPCEAAAAAAHFAAAAAAPIFAAAAAMGCAAAAA
 IsActiveChildFrame=True
 [WorkState_v1_1.SerialPort]
 SerialPort=4
@@ -1927,7 +1936,7 @@ BitsBeforeTargetIR=0
 [WorkState_v1_1.BankingPN]
 BankingPN=32767
 [WorkState_v1_1.OutputFile]
-OutputFile=
+OutputFile=init
 [WorkState_v1_1.MakeFile]
 MakeFile=
 [WorkState_v1_1.HexGenerator]
