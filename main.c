@@ -191,6 +191,11 @@ void main(void)
 	{
 		infoSend();
         Timer0_ms(1000);    // Delay 1 sec
+        
+        if(wasRead) {
+            wasRead = 0;
+            decode();
+        }
 	}
 }
 
