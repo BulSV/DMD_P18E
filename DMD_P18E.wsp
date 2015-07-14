@@ -1779,7 +1779,7 @@ Buttons=FJAIAAAAAAHJAIAAAAAACNAIAAAAAAJBAIAAAAAAGNAIAAAAAAMBAIAAAAAAAAAAAAAAAADH
 BarID=59399
 XPos=195
 YPos=28
-MRUWidth=502
+MRUWidth=2434
 Docking=True
 MRUDockID=59419
 MRUDockLeftPos=195
@@ -1853,7 +1853,7 @@ LargeButtons=False
 ptn_Child1=MainFrame
 ptn_Child2=ChildFrames
 [WorkState_v1_1.Frames.MainFrame]
-WindowPlacement=MCAAAAAACAAAAAAADAAAAAAAPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPALAAAAAAIOAAAAAAAFGAAAAAOMDAAAAA
+WindowPlacement=MCAAAAAACAAAAAAADAAAAAAAAADIPPPPAADIPPPPPPPPPPPPPPPPPPPPALAAAAAAIOAAAAAAAFGAAAAAOMDAAAAA
 Title=Silicon Laboratories IDE - [main.c]
 [WorkState_v1_1.Frames.ChildFrames]
 ptn_Child1=Document-0
@@ -1940,9 +1940,9 @@ OutputFile=init
 [WorkState_v1_1.MakeFile]
 MakeFile=
 [WorkState_v1_1.HexGenerator]
-HexGenerator=
+HexGenerator=C:\Keil_v5\C51\BIN\oh51.EXE
 [WorkState_v1_1.GenHex]
-GenHex=0
+GenHex=1
 [WorkState_v1_1.CExt]
 CExt=.obj
 [WorkState_v1_1.IDEVer]

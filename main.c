@@ -496,6 +496,7 @@ void decode(void)
 	case 0x03:
 		gainIQHandler();
 		break;
+	default: break;
 	}
 }
 
