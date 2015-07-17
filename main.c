@@ -51,7 +51,10 @@ sbit SPI_LED = P0^7;	// Indicate SPI work (active high) (output)
 // blinking - transfering;
 // lit after blinking - error;
 // not lit after blinking - transfer is over successfully
-sbit COUNTER_LED = P2^6;// Indicate counter switching (active high) (output)
+sbit UART_LED = P2^6;// Indicate UART work (active high) (output)
+// blinking - receiving;
+// lit after blinking - error;
+// not lit after blinking - receive is over successfully
 
 #define SYSCLK 24500000 // SYSCLK frequency in Hz
 
@@ -166,6 +169,10 @@ void fStrobeHandler(void);
 void gainIQHandler(void);
 // Gain I, Q init
 void gainIQInit(void);
+// SPI send work
+void blink_SPI_LED(unsigned char times);
+// UART receive work
+void blink_UART_LED(unsigned char times);
 
 //------------------------------------------------------------------------------
 // main() Routine
@@ -178,8 +185,10 @@ void main(void)
 	// LEDs init
 	POWER_ON = 1;
 	LOCK_4351 = 0;
+    SPI_LED = 0;
+    UART_LED = 0;
 
-	// De-select chip for SPI (init)
+	// Deselect chip for SPI (init)
 	CS_AMPL = 0;
 	LE_4351 = 0;
 	LE_4002 = 0;
@@ -288,6 +297,8 @@ void ADF4002_divider(void)
 	Timer0_ms(1);
 
 	LE_4002 = 0;	// Deselect ADF4002BCPZ
+
+    blink_SPI_LED(12);   // 12 packets send indicate
 }
 
 // Strobe Selector (MC74HCT160D)
@@ -370,6 +381,8 @@ void gainSetCode(char Code)
 	SPI_send(Code);	// Setting differential output B gain
 	Timer0_ms(1);
 	CS_AMPL = 0;	// Deselect AD8366ACPZ
+
+    blink_SPI_LED(2);   // 2 packets send indicate
 }
 
 // Program ADF4351BCPZ for phase and frequency change
@@ -405,7 +418,7 @@ void ADF4351_synth(char INT, char FRAK, int PHASE)
     // REG1
     if(INT > 75) {  // prescaler 8/9
         SPI_send(0x18);
-    } else {    // prescaler 4/5
+    } else {    	// prescaler 4/5
         SPI_send(0x10);
     }
     SPI_send(PHASE >> 1);
@@ -419,6 +432,8 @@ void ADF4351_synth(char INT, char FRAK, int PHASE)
     SPI_send(FRAK << 3);
     Timer0_ms(1);
     LE_4351 = 0;    // Deselect ADF4351BCPZ
+
+    blink_SPI_LED(24);   // 24 packets send indicate
 }
 
 // Write to UART0
@@ -476,6 +491,8 @@ void readFromPC(unsigned char bytes)
 
 	wasRead = 1;
 	RI0 = 0;
+
+    blink_UART_LED(8);  // 8 packets receive indicate
 }
 
 // Decode commands from PC
@@ -483,6 +500,9 @@ void decode(void)
 {
 	if(readData[0] != 0x55 &&
 		readData[7] != 0xAA) {
+        UART_LED = 1;   // Error accured!!!
+        Timer0_ms(1000); // Delay to indicate an error
+		UART_LED = 0;
 		return;
 	}
 
@@ -496,7 +516,11 @@ void decode(void)
 	case 0x03:
 		gainIQHandler();
 		break;
-	default: break;
+	default:
+        UART_LED = 1;   // Error accured!!!
+        Timer0_ms(1000); // Delay to indicate an error
+		UART_LED = 0;
+        break;
 	}
 }
 
@@ -530,4 +554,28 @@ void gainIQHandler(void)
 void gainIQInit(void)
 {
     gainSetCode(gainIQ);
+}
+
+// SPI send work
+void blink_SPI_LED(unsigned char times)
+{
+    unsigned char i;
+    for(i = 0; i < times; ++i) {
+        SPI_LED = 1;
+        Timer0_ms(10);
+        SPI_LED = 0;
+        Timer0_ms(10);
+    }
+}
+
+// UART receive work
+void blink_UART_LED(unsigned char times)
+{
+    unsigned char i;
+    for(i = 0; i < times; ++i) {
+        UART_LED = 1;
+        Timer0_ms(10);
+        UART_LED = 0;
+        Timer0_ms(10);
+    }
 }
