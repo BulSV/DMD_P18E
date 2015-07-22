@@ -44,31 +44,33 @@ sbit D1_COUNTER = P2^3;	// Data Midle (output)
 sbit D2_COUNTER = P2^2;	// Data Midle (output)
 sbit D3_COUNTER = P2^1;	// Data High (output)
 
+sbit RS_485_EN = P0^3;	// RS-485 receive enable (active low)
+
 // LEDs pins config
 sbit POWER_ON = P0^0;	// (active high) (output)
 sbit LOCK_4351 = P0^1;	// When ADF4351BCPZ locked PLL (active high) (output)
 sbit SPI_LED = P0^7;	// Indicate SPI work (active high) (output)
-// blinking - transfering;
-// lit after blinking - error;
-// not lit after blinking - transfer is over successfully
-sbit UART_LED = P2^6;// Indicate UART work (active high) (output)
-// blinking - receiving;
-// lit after blinking - error;
-// not lit after blinking - receive is over successfully
+						// blinking - transfering;
+						// lit after blinking - error - not used;
+						// not lit after blinking - transfer is over successfully
+sbit UART_LED = P2^6;	// Indicate UART work (active high) (output)
+						// blinking - receiving;
+						// lit after blinking - error;
+						// not lit after blinking - receive is over successfully
 
 #define SYSCLK 24500000 // SYSCLK frequency in Hz
 
-char freq;		    // Frequency number for ADF4351BCPZ
-char phase;		    // Phase for ADF4351BCPZ
-char divFactor;	    // Strobe select factor for MC74HCT160D
-char xdata gainIQ;	// Gain code for AD8366ACPZ
+char freq = 0;		    // Frequency number for ADF4351BCPZ
+char phase = 0;		    // Phase for ADF4351BCPZ
+char divFactor = 1;	    // Strobe select factor for MC74HCT160D
+char gainIQ = 0;	// Gain code for AD8366ACPZ
 
 char readData[8];	// Read data buffer
 
 bit wasRead = 0;	// Read data flag
 
 // INT ratio table for low frequency (ADF4351BCPZ)
-unsigned char xdata INT_LOW[112] = {
+unsigned char code INT_LOW[112] = {
 74, 74, 74, 74, 74, 74, 74, 74, 75, 75,
 75, 75, 75, 75, 75, 75, 75, 75, 75, 75,
 75, 75, 75, 75, 76, 76, 76, 76, 76, 76,
@@ -84,7 +86,7 @@ unsigned char xdata INT_LOW[112] = {
 };
 
 // FRAC ratio table for low frequency (ADF4351BCPZ)
-unsigned char xdata FRAC_LOW[112] = {
+unsigned char code FRAC_LOW[112] = {
 80, 90, 100, 110, 120, 130, 140, 150, 0, 10,
 20, 30, 40, 50, 60, 70, 80, 90, 100, 110,
 120, 130, 140, 150, 0, 10, 20, 30, 40, 50,
@@ -100,7 +102,7 @@ unsigned char xdata FRAC_LOW[112] = {
 };
 
 // INT ratio table for high frequency (ADF4351BCPZ)
-unsigned char xdata INT_HIGH[112] = {
+unsigned char code INT_HIGH[112] = {
 81, 82, 82, 82, 82, 82, 82, 82, 82, 82,
 82, 82, 82, 82, 82, 82, 83, 83, 83, 83,
 83, 83, 83, 83, 83, 83, 83, 83, 83, 83,
@@ -116,7 +118,7 @@ unsigned char xdata INT_HIGH[112] = {
 };
 
 // FRAC ratio table for high frequency (ADF4351BCPZ)
-unsigned char xdata FRAC_HIGH[112] = {
+unsigned char code FRAC_HIGH[112] = {
 152, 3, 14, 25, 36, 47, 58, 69, 80, 91,
 102, 113, 124, 135, 146, 157, 8, 19, 30, 41,
 52, 63, 74, 85, 96, 107, 118, 129, 140, 151,
@@ -173,6 +175,8 @@ void gainIQInit(void);
 void blink_SPI_LED(unsigned char times);
 // UART receive work
 void blink_UART_LED(unsigned char times);
+// Clearing ReadData array
+void clearReadData(void);
 
 //------------------------------------------------------------------------------
 // main() Routine
@@ -192,6 +196,9 @@ void main(void)
 	CS_AMPL = 0;
 	LE_4351 = 0;
 	LE_4002 = 0;
+
+	// Enable receive via RS-485
+	RS_485_EN = 0;
 
 	ADF4002_divider();  // Init devider
     gainIQInit();       // Init Gain I, Q
@@ -442,12 +449,16 @@ void writeToUART0(char* Data, unsigned char bytes)
 	unsigned char i;
 	EA = 0;
 	ES0 = 0;
+	RS_485_EN = 1;	// Enable RS-485 to send data
+    Timer0_ms(1);
 	for(i = 0; i < bytes; ++i) {
 		TI0 = 0;
 		SBUF0 = Data[i];
 
 		while(TI0 == 0);	// Wait for end data transmit
 	}
+	RS_485_EN = 0;	// Enable RS-485 to receive data
+    Timer0_ms(1);
 	TI0 = 0;
 	ES0 = 1;
 	EA = 1;
@@ -475,6 +486,8 @@ void infoSend(void)
 	writeData[6] = 0x00;
 	writeData[7] = 0xAA;
 
+    Timer0_ms(1);
+
 	writeToUART0(writeData, 8);
 }
 
@@ -482,6 +495,8 @@ void infoSend(void)
 void readFromPC(unsigned char bytes)
 {
 	unsigned char i;
+    clearReadData();
+
 	for(i = 0; i < bytes; ++i)
 	{
 		RI0 = 0;
@@ -562,9 +577,9 @@ void blink_SPI_LED(unsigned char times)
     unsigned char i;
     for(i = 0; i < times; ++i) {
         SPI_LED = 1;
-        Timer0_ms(10);
+        Timer0_ms(100);
         SPI_LED = 0;
-        Timer0_ms(10);
+        Timer0_ms(100);
     }
 }
 
@@ -574,8 +589,17 @@ void blink_UART_LED(unsigned char times)
     unsigned char i;
     for(i = 0; i < times; ++i) {
         UART_LED = 1;
-        Timer0_ms(10);
+        Timer0_ms(100);
         UART_LED = 0;
-        Timer0_ms(10);
+        Timer0_ms(100);
+    }
+}
+
+// Clearing ReadData array
+void clearReadData(void)
+{
+    unsigned char i;
+    for(i = 0; i < 8; ++i) {
+        readData[i] = 0x00;
     }
 }
