@@ -28,7 +28,7 @@ extern void Init_Device(void);
 
 // SPI config pins for control ADF4002BCPZ, ADF4351BCPZ and AD8366ACPZ
 sbit CS_AMPL = P1^2;	// Chip select for AD8366ACPZ (NSS) (output)
-sbit LE_4351 = P1^3;	// Load eneble for ADF4351BCPZ (NSS) (output)
+sbit LE_4351 = P1^3;	// Load enable for ADF4351BCPZ (NSS) (output)
 sbit LE_4002 = P1^2;	// Load enable for ADF4002BCPZ (NSS) (output)
 
 sbit CLK = P1^4;	// Serial SPI clock (output)
@@ -40,8 +40,8 @@ sbit LD_4351 = P1^5;	// Lock detect for ADF4351BCPZ (input) (MISO)
 sbit PE_COUNTER = P2^0;	// Parallel enable write data into counter (active low) (output)
 sbit MR_COUNTER = P2^5;	// Reset counter (data don't cleared) (active low) (output)
 sbit D0_COUNTER = P2^4;	// Data Low (output)
-sbit D1_COUNTER = P2^3;	// Data Midle (output)
-sbit D2_COUNTER = P2^2;	// Data Midle (output)
+sbit D1_COUNTER = P2^3;	// Data Middle (output)
+sbit D2_COUNTER = P2^2;	// Data Middle (output)
 sbit D3_COUNTER = P2^1;	// Data High (output)
 
 sbit RS_485_EN = P0^3;	// RS-485 receive enable (active low)
@@ -50,24 +50,27 @@ sbit RS_485_EN = P0^3;	// RS-485 receive enable (active low)
 sbit POWER_ON = P0^0;	// (active high) (output)
 sbit LOCK_4351 = P0^1;	// When ADF4351BCPZ locked PLL (active high) (output)
 sbit SPI_LED = P0^7;	// Indicate SPI work (active high) (output)
-						// blinking - transfering;
-						// lit after blinking - error - not used;
-						// not lit after blinking - transfer is over successfully
+                        // blinking - transferring;
+                        // lit after blinking - error - not used;
+                        // not lit after blinking - transfer is over successfully
 sbit UART_LED = P2^6;	// Indicate UART work (active high) (output)
-						// blinking - receiving;
-						// lit after blinking - error;
-						// not lit after blinking - receive is over successfully
+                        // blinking - receiving;
+                        // lit after blinking - error;
+                        // not lit after blinking - receive is over successfully
 
 #define SYSCLK 24500000 // SYSCLK frequency in Hz
 
 char freq = 0;		    // Frequency number for ADF4351BCPZ
 char phase = 0;		    // Phase for ADF4351BCPZ
 char divFactor = 1;	    // Strobe select factor for MC74HCT160D
-char gainIQ = 0;	// Gain code for AD8366ACPZ
+char gainIQ = 0;	    // Gain code for AD8366ACPZ
 
+char writeData[8];  // Write data buffer
 char readData[8];	// Read data buffer
 
-bit wasRead = 0;	// Read data flag
+bit startByteReaded = 0;            // Start byte read flag
+bit stopByteReaded = 0;             // Stop byte read flag
+unsigned char byteReadedIndex = 0;  // Current index of reading byte
 
 // INT ratio table for low frequency (ADF4351BCPZ)
 unsigned char code INT_LOW[112] = {
@@ -141,9 +144,9 @@ unsigned char code FRAC_HIGH[112] = {
 void Timer0_ms (unsigned ms);
 // Configure Timer0 to delay <us> microseconds
 void Timer0_us (unsigned us);
-// SPI send subrouting
+// SPI send subroutine
 void SPI_send(char Data);
-// SPI lock detect of ADF4351BCPZ subrouting
+// SPI lock detect of ADF4351BCPZ subroutine
 void SPI_LD_4351(void);
 // Program ADF4002BCPZ as 128-divider
 void ADF4002_divider(void);
@@ -159,8 +162,6 @@ void writeToUART0(char* Data, unsigned char bytes);
 void readFromUART0(void);
 // Write information to PC
 void infoSend(void);
-// Read commands from PC
-void readFromPC(unsigned char bytes);
 // Decode commands from PC
 void decode(void);
 // RES MON handler (write to ADF4351BCPZ)
@@ -184,35 +185,36 @@ void clearReadData(void);
 
 void main(void)
 {
-	Init_Device();
+    Init_Device();
 
-	// LEDs init
-	POWER_ON = 1;
-	LOCK_4351 = 0;
+    // LEDs init
+    POWER_ON = 1;
+    LOCK_4351 = 0;
     SPI_LED = 0;
     UART_LED = 0;
 
-	// Deselect chip for SPI (init)
-	CS_AMPL = 0;
-	LE_4351 = 0;
-	LE_4002 = 0;
+    // Deselect chip for SPI (init)
+    CS_AMPL = 0;
+    LE_4351 = 0;
+    LE_4002 = 0;
 
-	// Enable receive via RS-485
-	RS_485_EN = 0;
+    // Enable receive via RS-485
+    RS_485_EN = 0;
 
-	ADF4002_divider();  // Init devider
+    ADF4002_divider();  // Init divider
     gainIQInit();       // Init Gain I, Q
-	
-	while(1)
-	{
-		infoSend();
-        Timer0_ms(1000);    // Delay 1 sec
+    
+    while(1)
+    {
+        infoSend();
+        Timer0_ms(1000);    // Delay 1 sec        
         
-        if(wasRead) {
-            wasRead = 0;
-            decode();
+        if(startByteReaded && stopByteReaded) {            
+            stopByteReaded = 0;
+            startByteReaded = 0;
+            decode();            
         }
-	}
+    }
 }
 
 // Configure Timer0 to delay <ms> milliseconds
@@ -260,136 +262,136 @@ void Timer0_us (unsigned us)
     }
 }
 
-// SPI send subrouting
+// SPI send subroutine
 void SPI_send(char Data)
 {
-	SPI0DAT = Data;
+    SPI0DAT = Data;    
 }
 
-// SPI lock detect of ADF4351BCPZ subrouting
+// SPI lock detect of ADF4351BCPZ subroutine
 void SPI_LD_4351(void) interrupt 6
 {
-	if(SPI0DAT & 1) {
-		LOCK_4351 = 1;  // Indicate Lock Detect of ADF4351BCPZ
-	}
+    if(SPI0DAT & 1) {
+        LOCK_4351 = 1;  // Indicate Lock Detect of ADF4351BCPZ
+    }
 
-	SPIF = 0;	// Clear SPI flag
+    SPIF = 0;	// Clear SPI flag
 }
 
 // Program ADF4002BCPZ as 128-divider
 void ADF4002_divider(void)
 {
-	LE_4002 = 1;	// Select ADF4002BCPZ
-	Timer0_ms(1);
+    LE_4002 = 1;	// Select ADF4002BCPZ
+    Timer0_ms(1);
 
-	// init latch
-	SPI_send(0x1F);
-	SPI_send(0xA6);
-	SPI_send(0xA3);
-	Timer0_ms(1);
-	// func latch
-	SPI_send(0x1F);
-	SPI_send(0xA6);
-	SPI_send(0xA2);
-	Timer0_ms(1);
-	// R-counter
-	SPI_send(0x12);
-	SPI_send(0x00);
-	SPI_send(0x04);
-	Timer0_ms(1);
-	// N-counter
-	SPI_send(0x20);
-	SPI_send(0x80);
-	SPI_send(0x01);
-	Timer0_ms(1);
+    // init latch
+    SPI_send(0x1F);
+    SPI_send(0xA6);
+    SPI_send(0xA3);
+    Timer0_ms(1);
+    // func latch
+    SPI_send(0x1F);
+    SPI_send(0xA6);
+    SPI_send(0xA2);
+    Timer0_ms(1);
+    // R-counter
+    SPI_send(0x12);
+    SPI_send(0x00);
+    SPI_send(0x04);
+    Timer0_ms(1);
+    // N-counter
+    SPI_send(0x20);
+    SPI_send(0x80);
+    SPI_send(0x01);
+    Timer0_ms(1);
 
-	LE_4002 = 0;	// Deselect ADF4002BCPZ
+    LE_4002 = 0;	// Deselect ADF4002BCPZ
 
-    blink_SPI_LED(12);   // 12 packets send indicate
+    blink_SPI_LED(3);   // Packets send indicate
 }
 
 // Strobe Selector (MC74HCT160D)
 void strobeSelect(char divFactor)
 {
-	PE_COUNTER = 0;	// Parallel enable write data into counter
-	MR_COUNTER = 0;	// Reset counter (data don't cleared)
-	Timer0_ms(1);
+    PE_COUNTER = 0;	// Parallel enable write data into counter
+    MR_COUNTER = 0;	// Reset counter (data don't cleared)
+    Timer0_ms(1);
 
-	switch(divFactor)
-	{
-	case 1:
-		D0_COUNTER = 1;	// Data Low
-		D1_COUNTER = 0;	// Data Midle
-		D2_COUNTER = 0;	// Data Midle
-		D3_COUNTER = 1;	// Data High
-		break;
-	case 2:
-		D0_COUNTER = 0;	// Data Low
-		D1_COUNTER = 0;	// Data Midle
-		D2_COUNTER = 0;	// Data Midle
-		D3_COUNTER = 1;	// Data High
-		break;
-	case 3:
-		D0_COUNTER = 1;	// Data Low
-		D1_COUNTER = 1;	// Data Midle
-		D2_COUNTER = 1;	// Data Midle
-		D3_COUNTER = 0;	// Data High
-		break;
-	case 4:
-		D0_COUNTER = 0;	// Data Low
-		D1_COUNTER = 1;	// Data Midle
-		D2_COUNTER = 1;	// Data Midle
-		D3_COUNTER = 0;	// Data High
-		break;
-	/*case 5:
-		D0_COUNTER = 1;	// Data Low
-		D1_COUNTER = 0;	// Data Midle
-		D2_COUNTER = 1;	// Data Midle
-		D3_COUNTER = 0;	// Data High
-		break;*/
-	case 6:
-		D0_COUNTER = 0;	// Data Low
-		D1_COUNTER = 0;	// Data Midle
-		D2_COUNTER = 1;	// Data Midle
-		D3_COUNTER = 0;	// Data High
-		break;
-	/*case 7:
-		D0_COUNTER = 1;	// Data Low
-		D1_COUNTER = 1;	// Data Midle
-		D2_COUNTER = 0;	// Data Midle
-		D3_COUNTER = 0;	// Data High
-		break;*/
-	case 8:
-		D0_COUNTER = 0;	// Data Low
-		D1_COUNTER = 1;	// Data Midle
-		D2_COUNTER = 0;	// Data Midle
-		D3_COUNTER = 0;	// Data High
-		break;
-	case 9:
-		D0_COUNTER = 1;	// Data Low
-		D1_COUNTER = 0;	// Data Midle
-		D2_COUNTER = 0;	// Data Midle
-		D3_COUNTER = 0;	// Data High
-		break;
-	default: break;
-	}
+    switch(divFactor)
+    {
+    case 1:
+        D0_COUNTER = 1;	// Data Low
+        D1_COUNTER = 0;	// Data Middle
+        D2_COUNTER = 0;	// Data Middle
+        D3_COUNTER = 1;	// Data High
+        break;
+    case 2:
+        D0_COUNTER = 0;	// Data Low
+        D1_COUNTER = 0;	// Data Middle
+        D2_COUNTER = 0;	// Data Middle
+        D3_COUNTER = 1;	// Data High
+        break;
+    case 3:
+        D0_COUNTER = 1;	// Data Low
+        D1_COUNTER = 1;	// Data Middle
+        D2_COUNTER = 1;	// Data Middle
+        D3_COUNTER = 0;	// Data High
+        break;
+    case 4:
+        D0_COUNTER = 0;	// Data Low
+        D1_COUNTER = 1;	// Data Middle
+        D2_COUNTER = 1;	// Data Middle
+        D3_COUNTER = 0;	// Data High
+        break;
+    /*case 5:
+        D0_COUNTER = 1;	// Data Low
+        D1_COUNTER = 0;	// Data Middle
+        D2_COUNTER = 1;	// Data Middle
+        D3_COUNTER = 0;	// Data High
+        break;*/
+    case 6:
+        D0_COUNTER = 0;	// Data Low
+        D1_COUNTER = 0;	// Data Middle
+        D2_COUNTER = 1;	// Data Middle
+        D3_COUNTER = 0;	// Data High
+        break;
+    /*case 7:
+        D0_COUNTER = 1;	// Data Low
+        D1_COUNTER = 1;	// Data Middle
+        D2_COUNTER = 0;	// Data Middle
+        D3_COUNTER = 0;	// Data High
+        break;*/
+    case 8:
+        D0_COUNTER = 0;	// Data Low
+        D1_COUNTER = 1;	// Data Middle
+        D2_COUNTER = 0;	// Data Middle
+        D3_COUNTER = 0;	// Data High
+        break;
+    case 9:
+        D0_COUNTER = 1;	// Data Low
+        D1_COUNTER = 0;	// Data Middle
+        D2_COUNTER = 0;	// Data Middle
+        D3_COUNTER = 0;	// Data High
+        break;
+    default: break;
+    }
 
-	Timer0_ms(1);
-	PE_COUNTER = 1;	// Parallel disable write data into counter
-	MR_COUNTER = 1;	// Cancel Reset counter
+    Timer0_ms(1);
+    PE_COUNTER = 1;	// Parallel disable write data into counter
+    MR_COUNTER = 1;	// Cancel Reset counter
 }
 
 // Gain set (AD8366ACPZ)
 void gainSetCode(char Code)
 {
-	CS_AMPL = 1;	// Select AD8366ACPZ
-	Timer0_ms(1);
-	SPI_send(Code);	// Setting differential output A gain
-	SPI_send(Code);	// Setting differential output B gain
-	Timer0_ms(1);
-	CS_AMPL = 0;	// Deselect AD8366ACPZ
+    CS_AMPL = 1;	// Select AD8366ACPZ
+    Timer0_ms(1);
+    SPI_send(Code);	// Setting differential output A gain
+    SPI_send(Code);	// Setting differential output B gain
+    Timer0_ms(1);
+    CS_AMPL = 0;	// Deselect AD8366ACPZ
 
-    blink_SPI_LED(2);   // 2 packets send indicate
+    blink_SPI_LED(3);   // Packets send indicate
 }
 
 // Program ADF4351BCPZ for phase and frequency change
@@ -440,129 +442,128 @@ void ADF4351_synth(char INT, char FRAK, int PHASE)
     Timer0_ms(1);
     LE_4351 = 0;    // Deselect ADF4351BCPZ
 
-    blink_SPI_LED(24);   // 24 packets send indicate
+    blink_SPI_LED(3);   // Packets send indicate
 }
 
 // Write to UART0
 void writeToUART0(char* Data, unsigned char bytes)
 {
-	unsigned char i;
-	EA = 0;
-	ES0 = 0;
-	RS_485_EN = 1;	// Enable RS-485 to send data
+    unsigned char i;
+    EA = 0;
+    ES0 = 0;
+    RS_485_EN = 1;	// Enable RS-485 to send data
     Timer0_ms(1);
-	for(i = 0; i < bytes; ++i) {
-		TI0 = 0;
-		SBUF0 = Data[i];
+    for(i = 0; i < bytes; ++i) {
+        TI0 = 0;
+        SBUF0 = Data[i];
 
-		while(TI0 == 0);	// Wait for end data transmit
-	}
-	RS_485_EN = 0;	// Enable RS-485 to receive data
+        while(TI0 == 0);	// Wait for end data transmit
+    }
+    RS_485_EN = 0;	// Enable RS-485 to receive data
     Timer0_ms(1);
-	TI0 = 0;
-	ES0 = 1;
-	EA = 1;
+    TI0 = 0;
+    RI0 = 0;
+    ES0 = 1;
+    EA = 1;
 }
 
 // Read from UART0
 void readFromUART0(void) interrupt 4
-{
-	RI0 = 0;
-	readFromPC(8);
-	RI0 = 0;
+{    
+    //EA = 0;
+    RI0 = 0;
+    TI0 = 0;
+    
+    if(SBUF0 == 0x55 && !startByteReaded && byteReadedIndex == 0) {
+        readData[0] = SBUF0;            
+        startByteReaded = 1;        
+    } else if(SBUF0 == 0xAA && startByteReaded && byteReadedIndex == 6) {
+        readData[7] = SBUF0;
+        stopByteReaded = 1;
+        byteReadedIndex = 0;
+        blink_UART_LED(3);  // 8 byte receive indicate                 
+    } else if(startByteReaded && !stopByteReaded) {
+        readData[++byteReadedIndex] = SBUF0;            
+    } else {
+        UART_LED = 1;       // Error occurred!!!
+        Timer0_ms(1000);    // Delay to indicate an error
+        UART_LED = 0;    
+        /*POWER_ON = ~POWER_ON;
+        Timer0_ms(100);    // Delay 0.1 sec
+        POWER_ON = ~POWER_ON;
+        Timer0_ms(100);    // Delay 0.1 sec*/
+    }       
+    
+    RI0 = 0;
+    TI0 = 0;
+    //EA = 1;
 }
 
 // Write information to PC
 void infoSend(void)
 {
-	char writeData[8];
+    //char writeData[8];
 
-	writeData[0] = 0x55;
-	writeData[1] = freq;
-	writeData[2] = phase;
-	writeData[3] = divFactor;
-	writeData[4] = gainIQ;
-	writeData[5] = 0x00;
-	writeData[6] = 0x00;
-	writeData[7] = 0xAA;
+    writeData[0] = 0x55;
+    writeData[1] = freq;
+    writeData[2] = phase;
+    writeData[3] = divFactor;
+    writeData[4] = gainIQ;
+    writeData[5] = 0x00;
+    writeData[6] = 0x00;
+    writeData[7] = 0xAA;
 
-    Timer0_ms(1);
+    Timer0_ms(2);
 
-	writeToUART0(writeData, 8);
-}
-
-// Read commands from PC
-void readFromPC(unsigned char bytes)
-{
-	unsigned char i;
-    clearReadData();
-
-	for(i = 0; i < bytes; ++i)
-	{
-		RI0 = 0;
-		readData[i] = SBUF0;
-		while(RI0 == 0);
-	}
-
-	wasRead = 1;
-	RI0 = 0;
-
-    blink_UART_LED(8);  // 8 packets receive indicate
+    writeToUART0(writeData, 8);
+    blink_UART_LED(1);  // 1 byte send indicate
 }
 
 // Decode commands from PC
 void decode(void)
 {
-	if(readData[0] != 0x55 &&
-		readData[7] != 0xAA) {
-        UART_LED = 1;   // Error accured!!!
-        Timer0_ms(1000); // Delay to indicate an error
-		UART_LED = 0;
-		return;
-	}
-
-	switch(readData[1]) {
-	case 0x01:
-		resMonHandler();
-		break;
-	case 0x02:
-		fStrobeHandler();
-		break;
-	case 0x03:
-		gainIQHandler();
-		break;
-	default:
-        UART_LED = 1;   // Error accured!!!
-        Timer0_ms(1000); // Delay to indicate an error
-		UART_LED = 0;
+    switch(readData[1]) {
+    case 0x01:
+        resMonHandler();
         break;
-	}
+    case 0x02:
+        fStrobeHandler();
+        break;
+    case 0x03:
+        gainIQHandler();
+        break;
+    default:
+        UART_LED = 1;       // Error occurred!!!
+        Timer0_ms(1000);    // Delay to indicate an error
+        UART_LED = 0;
+        break;
+    }
 }
 
 // RES MON handler (write to ADF4351BCPZ)
 void resMonHandler(void)
 {
-	freq = readData[2];
-	phase = readData[3];
-	if(freq & 0x80) {
-		ADF4351_synth(INT_HIGH[freq & 0x7F], FRAC_HIGH[freq & 0x7F], phase);
-	} else {
-		ADF4351_synth(INT_LOW[freq], FRAC_LOW[freq], phase);
-	}
+    freq = readData[2];
+    phase = readData[3];
+    if(freq & 0x80) {
+        ADF4351_synth(INT_HIGH[freq & 0x7F], FRAC_HIGH[freq & 0x7F], phase);
+    } else {
+        ADF4351_synth(INT_LOW[freq], FRAC_LOW[freq], phase);
+    }
 }
 
 // F-Strobe handler(write to MC74HCT160D)
 void fStrobeHandler(void)
 {
-	divFactor = readData[2];
-	strobeSelect(divFactor);
+    divFactor = readData[2];
+    strobeSelect(divFactor);
 }
 
 // Gain I, Q handler (write to AD8366ACPZ)
 void gainIQHandler(void)
 {
-	gainIQ = readData[2];
-	gainSetCode(gainIQ);
+    gainIQ = readData[2];
+    gainSetCode(gainIQ);
 }
 
 // Gain I, Q init

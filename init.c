@@ -30,7 +30,7 @@ void SPI_Init()
 {
     SPI0CFG   = 0x40;
     SPI0CN    = 0x01;
-    SPI0CKR   = 0x98;
+    SPI0CKR   = 0x99;
 }
 
 void Port_IO_Init()
