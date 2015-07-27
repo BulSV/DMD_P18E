@@ -29,7 +29,7 @@ extern void Init_Device(void);
 // SPI config pins for control ADF4002BCPZ, ADF4351BCPZ and AD8366ACPZ
 sbit CS_AMPL = P1^2;	// Chip select for AD8366ACPZ (NSS) (output)
 sbit LE_4351 = P1^3;	// Load enable for ADF4351BCPZ (NSS) (output)
-sbit LE_4002 = P1^2;	// Load enable for ADF4002BCPZ (NSS) (output)
+sbit LE_4002 = P1^7;	// Load enable for ADF4002BCPZ (NSS) (output)
 
 sbit CLK = P1^4;	// Serial SPI clock (output)
 sbit DATA = P1^6;	// MOSI (output)
@@ -195,8 +195,8 @@ void main(void)
 
     // Deselect chip for SPI (init)
     CS_AMPL = 0;
-    LE_4351 = 0;
-    LE_4002 = 0;
+    LE_4351 = 1;
+    LE_4002 = 1;
 
     // Enable receive via RS-485
     RS_485_EN = 0;
@@ -265,47 +265,63 @@ void Timer0_us (unsigned us)
 // SPI send subroutine
 void SPI_send(char Data)
 {
-    SPI0DAT = Data;    
+    EA = 0;    
+    while(!TXBMT);
+    SPIF = 0;
+    SPI0DAT = Data;
+    //while(!TXBMT);
+    SPIF = 0;
+    Timer0_us(100);
+    EA = 1;
 }
 
 // SPI lock detect of ADF4351BCPZ subroutine
 void SPI_LD_4351(void) interrupt 6
 {
-    if(SPI0DAT & 1) {
+    SPIF = 0;	// Clear SPI flag
+    if(SPI0DAT) {
         LOCK_4351 = 1;  // Indicate Lock Detect of ADF4351BCPZ
+        Timer0_ms(100);
+        LOCK_4351 = 0;  // Clear Lock Detect indication of ADF4351BCPZ
     }
 
-    SPIF = 0;	// Clear SPI flag
+    //SPIF = 0;	// Clear SPI flag
 }
 
 // Program ADF4002BCPZ as 128-divider
 void ADF4002_divider(void)
-{
-    LE_4002 = 1;	// Select ADF4002BCPZ
-    Timer0_ms(1);
-
+{	
     // init latch
+	LE_4002 = 0;	// Select ADF4002BCPZ
     SPI_send(0x1F);
     SPI_send(0xA6);
     SPI_send(0xA3);
+	LE_4002 = 1;	// Deselect ADF4002BCPZ
     Timer0_ms(1);
+    
     // func latch
+	LE_4002 = 0;	// Select ADF4002BCPZ
     SPI_send(0x1F);
     SPI_send(0xA6);
     SPI_send(0xA2);
+	LE_4002 = 1;	// Deselect ADF4002BCPZ
     Timer0_ms(1);
+    
     // R-counter
+	LE_4002 = 0;	// Select ADF4002BCPZ
     SPI_send(0x12);
     SPI_send(0x00);
     SPI_send(0x04);
+	LE_4002 = 1;	// Deselect ADF4002BCPZ
     Timer0_ms(1);
+    
     // N-counter
+	LE_4002 = 0;	// Select ADF4002BCPZ
     SPI_send(0x20);
     SPI_send(0x80);
     SPI_send(0x01);
-    Timer0_ms(1);
-
-    LE_4002 = 0;	// Deselect ADF4002BCPZ
+	LE_4002 = 1;	// Deselect ADF4002BCPZ
+    Timer0_ms(1);    
 
     blink_SPI_LED(3);   // Packets send indicate
 }
@@ -397,50 +413,64 @@ void gainSetCode(char Code)
 // Program ADF4351BCPZ for phase and frequency change
 void ADF4351_synth(char INT, char FRAK, int PHASE)
 {
-    LOCK_4351 = 0;  // Clear Lock Detect indication of ADF4351BCPZ
-    LE_4351 = 1;    // Select ADF4351BCPZ
-    Timer0_ms(1);
+    //LOCK_4351 = 0;  // Clear Lock Detect indication of ADF4351BCPZ
     // REG5
-    SPI_send(0x00);
-    SPI_send(0x58);
-    SPI_send(0x00);
+    LE_4351 = 0;    // Select ADF4351BCPZ    
+    SPI_send(0x00);	
+    SPI_send(0x58);	
+    SPI_send(0x00);	
     SPI_send(0x05);
+	LE_4351 = 1;    // Deselect ADF4351BCPZ
     Timer0_ms(1);
+
     // REG4
-    SPI_send(0x00);
-    SPI_send(0xBF);
-    SPI_send(0xA4);
+	LE_4351 = 0;    // Select ADF4351BCPZ
+    SPI_send(0x00);	
+    SPI_send(0xBF);	
+    SPI_send(0xA4);	
     SPI_send(0xFC);
+	LE_4351 = 1;    // Deselect ADF4351BCPZ
     Timer0_ms(1);
+
     // REG3
-    SPI_send(0x00);
-    SPI_send(0x81);
-    SPI_send(0x03);
-    SPI_send(0xEB);
+	LE_4351 = 0;    // Select ADF4351BCPZ
+    SPI_send(0x00);	
+    SPI_send(0x00);	
+    SPI_send(0x04);	
+    SPI_send(0xB3);
+	LE_4351 = 1;    // Deselect ADF4351BCPZ
     Timer0_ms(1);
+
     // REG2
-    SPI_send(0x0D);
-    SPI_send(0x01);
-    SPI_send(0x0E);
+	LE_4351 = 0;    // Select ADF4351BCPZ
+    SPI_send(0x0D);	
+    SPI_send(0x01);	
+    SPI_send(0x0E);	
     SPI_send(0x42);
+	LE_4351 = 1;    // Deselect ADF4351BCPZ
     Timer0_ms(1);
+
     // REG1
+	LE_4351 = 0;    // Select ADF4351BCPZ
     if(INT > 75) {  // prescaler 8/9
         SPI_send(0x18);
     } else {    	// prescaler 4/5
         SPI_send(0x10);
-    }
-    SPI_send(PHASE >> 1);
-    SPI_send( (PHASE << 7) | (0x05) );
-    SPI_send(0x01);
-    Timer0_ms(1);
+    }	
+    SPI_send(PHASE >> 1);	
+    SPI_send( (PHASE << 7) | (0x05) );	
+    SPI_send(0x01);    
+	LE_4351 = 1;    // Deselect ADF4351BCPZ
+	Timer0_ms(1);
+
     // REG0
-    SPI_send(0x00);
-    SPI_send(INT >> 1);
-    SPI_send( (INT << 7) | (FRAK >> 5) );
+	LE_4351 = 0;    // Select ADF4351BCPZ
+    SPI_send(0x00);	
+    SPI_send(INT >> 1);	
+    SPI_send( (INT << 7) | (FRAK >> 5) );	
     SPI_send(FRAK << 3);
     Timer0_ms(1);
-    LE_4351 = 0;    // Deselect ADF4351BCPZ
+    LE_4351 = 1;    // Deselect ADF4351BCPZ
 
     blink_SPI_LED(3);   // Packets send indicate
 }
