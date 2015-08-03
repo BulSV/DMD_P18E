@@ -515,13 +515,13 @@ void ADF4351_synth(unsigned char INT, unsigned char FRAC, unsigned char PHASE)
     // REG1
     LE_4351 = 0;    // Select ADF4351BCPZ
     Timer0_ms(1);
-    if(INT > 75) {  // prescaler 8/9
-        SPI_send(0x08);//0x18);
+    if(INT >= 75) {  // prescaler 8/9
+        SPI_send(0x08);
     } else {    	// prescaler 4/5
-        SPI_send(0x00);//0x10);
+        SPI_send(0x00);
     }	
-    SPI_send(0x00);//PHASE >> 1);	
-    SPI_send(0x85);// (PHASE << 7) | (0x05) );	
+    SPI_send(PHASE >> 1);	
+    SPI_send( (PHASE << 7) | (0x05) );	
     SPI_send(0x01);    
     LE_4351 = 1;    // Deselect ADF4351BCPZ
     Timer0_ms(1);
@@ -536,6 +536,31 @@ void ADF4351_synth(unsigned char INT, unsigned char FRAC, unsigned char PHASE)
     Timer0_ms(1);
     LE_4351 = 1;    // Deselect ADF4351BCPZ
     
+    // One more time for phase record with adjust phase bit set
+    // REG1
+    LE_4351 = 0;    // Select ADF4351BCPZ
+    Timer0_ms(1);
+    if(INT >= 75) {  // prescaler 8/9
+        SPI_send(0x18);
+    } else {    	// prescaler 4/5
+        SPI_send(0x10);
+    }	
+    SPI_send(PHASE >> 1);	
+    SPI_send( (PHASE << 7) | (0x05) );	
+    SPI_send(0x01);    
+    LE_4351 = 1;    // Deselect ADF4351BCPZ
+    Timer0_ms(1);
+
+    // REG0
+    LE_4351 = 0;    // Select ADF4351BCPZ
+    Timer0_ms(1);
+    SPI_send(0x00);	
+    SPI_send(INT >> 1);	
+    SPI_send( (INT << 7) | (FRAC >> 5) );	
+    SPI_send(FRAC << 3);
+    Timer0_ms(1);
+    LE_4351 = 1;    // Deselect ADF4351BCPZ
+        
     blink_SPI_LED(3);   // Packets send indicate
 }
 
