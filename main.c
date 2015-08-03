@@ -50,23 +50,23 @@ sbit RS_485_EN = P0^3;	// RS-485 receive enable (active low)
 sbit POWER_ON = P0^0;	// (active high) (output)
 sbit LOCK_4351 = P0^1;	// When ADF4351BCPZ locked PLL (active high) (output)
 sbit SPI_LED = P0^7;	// Indicate SPI work (active high) (output)
-                        // blinking - transferring;
-                        // lit after blinking - error - not used;
-                        // not lit after blinking - transfer is over successfully
+// blinking - transferring;
+// lit after blinking - error - not used;
+// not lit after blinking - transfer is over successfully
 sbit UART_LED = P2^6;	// Indicate UART work (active high) (output)
-                        // blinking - receiving;
-                        // lit after blinking - error;
-                        // not lit after blinking - receive is over successfully
+// blinking - receiving;
+// lit after blinking - error;
+// not lit after blinking - receive is over successfully
 
 #define SYSCLK 24500000 // SYSCLK frequency in Hz
 
-char freq = 0;		    // Frequency number for ADF4351BCPZ
-char phase = 0;		    // Phase for ADF4351BCPZ
-char divFactor = 1;	    // Strobe select factor for MC74HCT160D
-char gainIQ = 0;	    // Gain code for AD8366ACPZ
+unsigned char freq = 0;		    // Frequency number for ADF4351BCPZ
+unsigned char phase = 0;		    // Phase for ADF4351BCPZ
+unsigned char divFactor = 1;	    // Strobe select factor for MC74HCT160D
+unsigned char gainIQ = 0;	    // Gain code for AD8366ACPZ
 
-char writeData[8];  // Write data buffer
-char readData[8];	// Read data buffer
+unsigned char writeData[8];  // Write data buffer
+unsigned char readData[8];	 // Read data buffer
 
 bit startByteReaded = 0;            // Start byte read flag
 bit stopByteReaded = 0;             // Stop byte read flag
@@ -74,66 +74,66 @@ unsigned char byteReadedIndex = 0;  // Current index of reading byte
 
 // INT ratio table for low frequency (ADF4351BCPZ)
 unsigned char code INT_LOW[112] = {
-74, 74, 74, 74, 74, 74, 74, 74, 75, 75,
-75, 75, 75, 75, 75, 75, 75, 75, 75, 75,
-75, 75, 75, 75, 76, 76, 76, 76, 76, 76,
-76, 76, 76, 76, 76, 76, 76, 76, 76, 76,
-77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
-77, 77, 77, 77, 77, 77, 78, 78, 78, 78,
-78, 78, 78, 78, 78, 78, 78, 78, 78, 78,
-78, 78, 79, 79, 79, 79, 79, 79, 79, 79,
-79, 79, 79, 79, 79, 79, 79, 79, 80, 80,
-80, 80, 80, 80, 80, 80, 80, 80, 80, 80,
-80, 80, 80, 80, 81, 81, 81, 81, 81, 81,
-81, 81
+    74, 74, 74, 74, 74, 74, 74, 74, 75, 75,
+    75, 75, 75, 75, 75, 75, 75, 75, 75, 75,
+    75, 75, 75, 75, 76, 76, 76, 76, 76, 76,
+    76, 76, 76, 76, 76, 76, 76, 76, 76, 76,
+    77, 77, 77, 77, 77, 77, 77, 77, 77, 77,
+    77, 77, 77, 77, 77, 77, 78, 78, 78, 78,
+    78, 78, 78, 78, 78, 78, 78, 78, 78, 78,
+    78, 78, 79, 79, 79, 79, 79, 79, 79, 79,
+    79, 79, 79, 79, 79, 79, 79, 79, 80, 80,
+    80, 80, 80, 80, 80, 80, 80, 80, 80, 80,
+    80, 80, 80, 80, 81, 81, 81, 81, 81, 81,
+    81, 81
 };
 
 // FRAC ratio table for low frequency (ADF4351BCPZ)
 unsigned char code FRAC_LOW[112] = {
-80, 90, 100, 110, 120, 130, 140, 150, 0, 10,
-20, 30, 40, 50, 60, 70, 80, 90, 100, 110,
-120, 130, 140, 150, 0, 10, 20, 30, 40, 50,
-60, 70, 80, 90, 100, 110, 120, 130, 140, 150,
-0, 10, 20, 30, 40, 50, 60, 70, 80, 90,
-100, 110, 120, 130, 140, 150, 0, 10, 20, 30,
-40, 50, 60, 70, 80, 90, 100, 110, 120, 130,
-140, 150, 0, 10, 20, 30, 40, 50, 60, 70,
-80, 90, 100, 110, 120, 130, 140, 150, 0, 10,
-20, 30, 40, 50, 60, 70, 80, 90, 100, 110,
-120, 130, 140, 150, 0, 10, 20, 30, 40, 50,
-60, 70
+    80, 90, 100, 110, 120, 130, 140, 150, 0, 10,
+    20, 30, 40, 50, 60, 70, 80, 90, 100, 110,
+    120, 130, 140, 150, 0, 10, 20, 30, 40, 50,
+    60, 70, 80, 90, 100, 110, 120, 130, 140, 150,
+    0, 10, 20, 30, 40, 50, 60, 70, 80, 90,
+    100, 110, 120, 130, 140, 150, 0, 10, 20, 30,
+    40, 50, 60, 70, 80, 90, 100, 110, 120, 130,
+    140, 150, 0, 10, 20, 30, 40, 50, 60, 70,
+    80, 90, 100, 110, 120, 130, 140, 150, 0, 10,
+    20, 30, 40, 50, 60, 70, 80, 90, 100, 110,
+    120, 130, 140, 150, 0, 10, 20, 30, 40, 50,
+    60, 70
 };
 
 // INT ratio table for high frequency (ADF4351BCPZ)
 unsigned char code INT_HIGH[112] = {
-81, 82, 82, 82, 82, 82, 82, 82, 82, 82,
-82, 82, 82, 82, 82, 82, 83, 83, 83, 83,
-83, 83, 83, 83, 83, 83, 83, 83, 83, 83,
-84, 84, 84, 84, 84, 84, 84, 84, 84, 84,
-84, 84, 84, 84, 84, 85, 85, 85, 85, 85,
-85, 85, 85, 85, 85, 85, 85, 85, 85, 86,
-86, 86, 86, 86, 86, 86, 86, 86, 86, 86,
-86, 86, 86, 86, 87, 87, 87, 87, 87, 87,
-87, 87, 87, 87, 87, 87, 87, 87, 88, 88,
-88, 88, 88, 88, 88, 88, 88, 88, 88, 88,
-88, 88, 88, 89, 89, 89, 89, 89, 89, 89,
-89, 89
+    81, 82, 82, 82, 82, 82, 82, 82, 82, 82,
+    82, 82, 82, 82, 82, 82, 83, 83, 83, 83,
+    83, 83, 83, 83, 83, 83, 83, 83, 83, 83,
+    84, 84, 84, 84, 84, 84, 84, 84, 84, 84,
+    84, 84, 84, 84, 84, 85, 85, 85, 85, 85,
+    85, 85, 85, 85, 85, 85, 85, 85, 85, 86,
+    86, 86, 86, 86, 86, 86, 86, 86, 86, 86,
+    86, 86, 86, 86, 87, 87, 87, 87, 87, 87,
+    87, 87, 87, 87, 87, 87, 87, 87, 88, 88,
+    88, 88, 88, 88, 88, 88, 88, 88, 88, 88,
+    88, 88, 88, 89, 89, 89, 89, 89, 89, 89,
+    89, 89
 };
 
 // FRAC ratio table for high frequency (ADF4351BCPZ)
 unsigned char code FRAC_HIGH[112] = {
-152, 3, 14, 25, 36, 47, 58, 69, 80, 91,
-102, 113, 124, 135, 146, 157, 8, 19, 30, 41,
-52, 63, 74, 85, 96, 107, 118, 129, 140, 151,
-2, 13, 24, 35, 46, 57, 68, 79, 90, 101,
-112, 123, 134, 145, 156, 7, 18, 29, 40, 51,
-62, 73, 84, 95, 106, 117, 128, 139, 150, 1,
-12, 23, 34, 45, 56, 67, 78, 89, 100, 111,
-122, 133, 144, 155, 6, 17, 28, 39, 50, 61,
-72, 83, 94, 105, 116, 127, 138, 149, 0, 11,
-22, 33, 44, 55, 66, 77, 88, 99, 110, 121,
-132, 143, 154, 5, 16, 27, 38, 49, 60, 71,
-82, 93
+    152, 3, 14, 25, 36, 47, 58, 69, 80, 91,
+    102, 113, 124, 135, 146, 157, 8, 19, 30, 41,
+    52, 63, 74, 85, 96, 107, 118, 129, 140, 151,
+    2, 13, 24, 35, 46, 57, 68, 79, 90, 101,
+    112, 123, 134, 145, 156, 7, 18, 29, 40, 51,
+    62, 73, 84, 95, 106, 117, 128, 139, 150, 1,
+    12, 23, 34, 45, 56, 67, 78, 89, 100, 111,
+    122, 133, 144, 155, 6, 17, 28, 39, 50, 61,
+    72, 83, 94, 105, 116, 127, 138, 149, 0, 11,
+    22, 33, 44, 55, 66, 77, 88, 99, 110, 121,
+    132, 143, 154, 5, 16, 27, 38, 49, 60, 71,
+    82, 93
 };
 
 //------------------------------------------------------------------------------
@@ -145,19 +145,19 @@ void Timer0_ms (unsigned ms);
 // Configure Timer0 to delay <us> microseconds
 void Timer0_us (unsigned us);
 // SPI send subroutine
-void SPI_send(char Data);
-// SPI lock detect of ADF4351BCPZ subroutine
-void SPI_LD_4351(void);
+void SPI_send(unsigned char Data);
 // Program ADF4002BCPZ as 128-divider
 void ADF4002_divider(void);
 // Strobe Selector (MC74HCT160D)
 void strobeSelect(char divFactor);
 // Gain set (AD8366ACPZ)
-void gainSetCode(char Code);
+void gainSetCode(unsigned char Code);
+// Program ADF4351BCPZ init
+void ADF4351_init(void);
 // Program ADF4351BCPZ for phase and frequency change
-void ADF4351_synth(char INT, char FRAK, int PHASE);
+void ADF4351_synth(unsigned char INT, unsigned char FRAC, unsigned char PHASE);
 // Write to UART0
-void writeToUART0(char* Data, unsigned char bytes);
+void writeToUART0(unsigned char* Data, unsigned char bytes);
 // Read from UART0
 void readFromUART0(void);
 // Write information to PC
@@ -178,6 +178,8 @@ void blink_SPI_LED(unsigned char times);
 void blink_UART_LED(unsigned char times);
 // Clearing ReadData array
 void clearReadData(void);
+// Lock Detect of ADF4351BCPZ
+void lockDetect(void);
 
 //------------------------------------------------------------------------------
 // main() Routine
@@ -186,6 +188,7 @@ void clearReadData(void);
 void main(void)
 {
     Init_Device();
+    IT0 = 1;    // Ext. interrupt 1-0    
 
     // LEDs init
     POWER_ON = 1;
@@ -202,6 +205,7 @@ void main(void)
     RS_485_EN = 0;
 
     ADF4002_divider();  // Init divider
+    ADF4351_init();    // Init synth
     gainIQInit();       // Init Gain I, Q
     
     while(1)
@@ -263,71 +267,62 @@ void Timer0_us (unsigned us)
 }
 
 // SPI send subroutine
-void SPI_send(char Data)
+void SPI_send(unsigned char Data)
 {
     EA = 0;    
     while(!TXBMT);
     SPIF = 0;
     SPI0DAT = Data;
-    //while(!TXBMT);
+    while(!TXBMT);
     SPIF = 0;
-    Timer0_us(100);
+    Timer0_us(1000);
     EA = 1;
-}
-
-// SPI lock detect of ADF4351BCPZ subroutine
-void SPI_LD_4351(void) interrupt 6
-{
-    SPIF = 0;	// Clear SPI flag
-    if(SPI0DAT) {
-        LOCK_4351 = 1;  // Indicate Lock Detect of ADF4351BCPZ
-        Timer0_ms(100);
-        LOCK_4351 = 0;  // Clear Lock Detect indication of ADF4351BCPZ
-    }
-
-    //SPIF = 0;	// Clear SPI flag
 }
 
 // Program ADF4002BCPZ as 128-divider
 void ADF4002_divider(void)
 {	
     // init latch
-	LE_4002 = 0;	// Select ADF4002BCPZ
+    LE_4002 = 0;	// Select ADF4002BCPZ
+    Timer0_ms(1);
     SPI_send(0x1F);
     SPI_send(0xA6);
     SPI_send(0xA3);
-	LE_4002 = 1;	// Deselect ADF4002BCPZ
+    LE_4002 = 1;	// Deselect ADF4002BCPZ
     Timer0_ms(1);
     
     // func latch
-	LE_4002 = 0;	// Select ADF4002BCPZ
+    LE_4002 = 0;	// Select ADF4002BCPZ
+    Timer0_ms(1);
     SPI_send(0x1F);
     SPI_send(0xA6);
     SPI_send(0xA2);
-	LE_4002 = 1;	// Deselect ADF4002BCPZ
+    LE_4002 = 1;	// Deselect ADF4002BCPZ
     Timer0_ms(1);
     
     // R-counter
-	LE_4002 = 0;	// Select ADF4002BCPZ
+    LE_4002 = 0;	// Select ADF4002BCPZ
+    Timer0_ms(1);
     SPI_send(0x12);
     SPI_send(0x00);
     SPI_send(0x04);
-	LE_4002 = 1;	// Deselect ADF4002BCPZ
+    LE_4002 = 1;	// Deselect ADF4002BCPZ
     Timer0_ms(1);
     
     // N-counter
-	LE_4002 = 0;	// Select ADF4002BCPZ
+    LE_4002 = 0;	// Select ADF4002BCPZ
+    Timer0_ms(1);
     SPI_send(0x20);
     SPI_send(0x80);
     SPI_send(0x01);
-	LE_4002 = 1;	// Deselect ADF4002BCPZ
+    LE_4002 = 1;	// Deselect ADF4002BCPZ
     Timer0_ms(1);    
 
     blink_SPI_LED(3);   // Packets send indicate
 }
 
 // Strobe Selector (MC74HCT160D)
-void strobeSelect(char divFactor)
+void strobeSelect(unsigned char divFactor)
 {
     PE_COUNTER = 0;	// Parallel enable write data into counter
     MR_COUNTER = 0;	// Reset counter (data don't cleared)
@@ -359,7 +354,7 @@ void strobeSelect(char divFactor)
         D2_COUNTER = 1;	// Data Middle
         D3_COUNTER = 0;	// Data High
         break;
-    /*case 5:
+        /*case 5:
         D0_COUNTER = 1;	// Data Low
         D1_COUNTER = 0;	// Data Middle
         D2_COUNTER = 1;	// Data Middle
@@ -371,7 +366,7 @@ void strobeSelect(char divFactor)
         D2_COUNTER = 1;	// Data Middle
         D3_COUNTER = 0;	// Data High
         break;
-    /*case 7:
+        /*case 7:
         D0_COUNTER = 1;	// Data Low
         D1_COUNTER = 1;	// Data Middle
         D2_COUNTER = 0;	// Data Middle
@@ -398,7 +393,7 @@ void strobeSelect(char divFactor)
 }
 
 // Gain set (AD8366ACPZ)
-void gainSetCode(char Code)
+void gainSetCode(unsigned char Code)
 {
     CS_AMPL = 1;	// Select AD8366ACPZ
     Timer0_ms(1);
@@ -410,73 +405,142 @@ void gainSetCode(char Code)
     blink_SPI_LED(3);   // Packets send indicate
 }
 
-// Program ADF4351BCPZ for phase and frequency change
-void ADF4351_synth(char INT, char FRAK, int PHASE)
+// Program ADF4351BCPZ init
+void ADF4351_init(void)
 {
-    //LOCK_4351 = 0;  // Clear Lock Detect indication of ADF4351BCPZ
     // REG5
-    LE_4351 = 0;    // Select ADF4351BCPZ    
+    LE_4351 = 0;    // Select ADF4351BCPZ   
+    Timer0_ms(1);
     SPI_send(0x00);	
     SPI_send(0x58);	
     SPI_send(0x00);	
     SPI_send(0x05);
-	LE_4351 = 1;    // Deselect ADF4351BCPZ
+    LE_4351 = 1;    // Deselect ADF4351BCPZ
     Timer0_ms(1);
 
     // REG4
-	LE_4351 = 0;    // Select ADF4351BCPZ
+    LE_4351 = 0;    // Select ADF4351BCPZ
+    Timer0_ms(1);
     SPI_send(0x00);	
     SPI_send(0xBF);	
-    SPI_send(0xA4);	
+    SPI_send(0xA5);	
     SPI_send(0xFC);
-	LE_4351 = 1;    // Deselect ADF4351BCPZ
+    LE_4351 = 1;    // Deselect ADF4351BCPZ
     Timer0_ms(1);
 
     // REG3
-	LE_4351 = 0;    // Select ADF4351BCPZ
+    LE_4351 = 0;    // Select ADF4351BCPZ
+    Timer0_ms(1);
     SPI_send(0x00);	
     SPI_send(0x00);	
     SPI_send(0x04);	
     SPI_send(0xB3);
-	LE_4351 = 1;    // Deselect ADF4351BCPZ
+    LE_4351 = 1;    // Deselect ADF4351BCPZ
     Timer0_ms(1);
 
     // REG2
-	LE_4351 = 0;    // Select ADF4351BCPZ
+    LE_4351 = 0;    // Select ADF4351BCPZ
+    Timer0_ms(1);
     SPI_send(0x0D);	
     SPI_send(0x01);	
     SPI_send(0x0E);	
     SPI_send(0x42);
-	LE_4351 = 1;    // Deselect ADF4351BCPZ
-    Timer0_ms(1);
-
+    LE_4351 = 1;    // Deselect ADF4351BCPZ
+    Timer0_ms(1);    
+    
     // REG1
-	LE_4351 = 0;    // Select ADF4351BCPZ
-    if(INT > 75) {  // prescaler 8/9
-        SPI_send(0x18);
-    } else {    	// prescaler 4/5
-        SPI_send(0x10);
-    }	
-    SPI_send(PHASE >> 1);	
-    SPI_send( (PHASE << 7) | (0x05) );	
+    LE_4351 = 0;    // Select ADF4351BCPZ	
+    SPI_send(0x00); // prescaler 4/5
+    SPI_send(0x00);	
+    SPI_send(0x85);	
     SPI_send(0x01);    
-	LE_4351 = 1;    // Deselect ADF4351BCPZ
-	Timer0_ms(1);
+    LE_4351 = 1;    // Deselect ADF4351BCPZ
+    Timer0_ms(1);
 
     // REG0
-	LE_4351 = 0;    // Select ADF4351BCPZ
+    LE_4351 = 0;    // Select ADF4351BCPZ
+    SPI_send(0x00);	
+    SPI_send(0x25);	
+    SPI_send(0x02);	
+    SPI_send(0x80);
+    Timer0_ms(1);
+    LE_4351 = 1;    // Deselect ADF4351BCPZ        
+    
+    blink_SPI_LED(3);   // Packets send indicate
+}
+
+// Program ADF4351BCPZ for phase and frequency change
+void ADF4351_synth(unsigned char INT, unsigned char FRAC, unsigned char PHASE)
+{    
+    // REG5
+    LE_4351 = 0;    // Select ADF4351BCPZ   
+    Timer0_ms(1);
+    SPI_send(0x00);	
+    SPI_send(0x58);	
+    SPI_send(0x00);	
+    SPI_send(0x05);
+    LE_4351 = 1;    // Deselect ADF4351BCPZ
+    Timer0_ms(1);
+
+    // REG4
+    LE_4351 = 0;    // Select ADF4351BCPZ
+    Timer0_ms(1);
+    SPI_send(0x00);	
+    SPI_send(0xBF);	
+    SPI_send(0xA5);	
+    SPI_send(0xFC);
+    LE_4351 = 1;    // Deselect ADF4351BCPZ
+    Timer0_ms(1);
+
+    // REG3
+    LE_4351 = 0;    // Select ADF4351BCPZ
+    Timer0_ms(1);
+    SPI_send(0x00);	
+    SPI_send(0x00);	
+    SPI_send(0x04);	
+    SPI_send(0xB3);
+    LE_4351 = 1;    // Deselect ADF4351BCPZ
+    Timer0_ms(1);
+
+    // REG2
+    LE_4351 = 0;    // Select ADF4351BCPZ
+    Timer0_ms(1);
+    SPI_send(0x0D);	
+    SPI_send(0x01);	
+    SPI_send(0x0E);	
+    SPI_send(0x42);
+    LE_4351 = 1;    // Deselect ADF4351BCPZ
+    Timer0_ms(1);
+    
+    // REG1
+    LE_4351 = 0;    // Select ADF4351BCPZ
+    Timer0_ms(1);
+    if(INT > 75) {  // prescaler 8/9
+        SPI_send(0x08);//0x18);
+    } else {    	// prescaler 4/5
+        SPI_send(0x00);//0x10);
+    }	
+    SPI_send(0x00);//PHASE >> 1);	
+    SPI_send(0x85);// (PHASE << 7) | (0x05) );	
+    SPI_send(0x01);    
+    LE_4351 = 1;    // Deselect ADF4351BCPZ
+    Timer0_ms(1);
+
+    // REG0
+    LE_4351 = 0;    // Select ADF4351BCPZ
+    Timer0_ms(1);
     SPI_send(0x00);	
     SPI_send(INT >> 1);	
-    SPI_send( (INT << 7) | (FRAK >> 5) );	
-    SPI_send(FRAK << 3);
+    SPI_send( (INT << 7) | (FRAC >> 5) );	
+    SPI_send(FRAC << 3);
     Timer0_ms(1);
     LE_4351 = 1;    // Deselect ADF4351BCPZ
-
+    
     blink_SPI_LED(3);   // Packets send indicate
 }
 
 // Write to UART0
-void writeToUART0(char* Data, unsigned char bytes)
+void writeToUART0(unsigned char* Data, unsigned char bytes)
 {
     unsigned char i;
     EA = 0;
@@ -500,7 +564,7 @@ void writeToUART0(char* Data, unsigned char bytes)
 // Read from UART0
 void readFromUART0(void) interrupt 4
 {    
-    //EA = 0;
+    EA = 0;
     RI0 = 0;
     TI0 = 0;
     
@@ -517,23 +581,17 @@ void readFromUART0(void) interrupt 4
     } else {
         UART_LED = 1;       // Error occurred!!!
         Timer0_ms(1000);    // Delay to indicate an error
-        UART_LED = 0;    
-        /*POWER_ON = ~POWER_ON;
-        Timer0_ms(100);    // Delay 0.1 sec
-        POWER_ON = ~POWER_ON;
-        Timer0_ms(100);    // Delay 0.1 sec*/
+        UART_LED = 0;        
     }       
     
     RI0 = 0;
     TI0 = 0;
-    //EA = 1;
+    EA = 1;
 }
 
 // Write information to PC
 void infoSend(void)
 {
-    //char writeData[8];
-
     writeData[0] = 0x55;
     writeData[1] = freq;
     writeData[2] = phase;
@@ -546,7 +604,7 @@ void infoSend(void)
     Timer0_ms(2);
 
     writeToUART0(writeData, 8);
-    blink_UART_LED(1);  // 1 byte send indicate
+    blink_UART_LED(1);  // Bytes send indicate
 }
 
 // Decode commands from PC
@@ -633,4 +691,16 @@ void clearReadData(void)
     for(i = 0; i < 8; ++i) {
         readData[i] = 0x00;
     }
+}
+
+// Lock Detect of ADF4351BCPZ
+void lockDetect(void) interrupt 0
+{
+    EA = 0;
+    IE0 = 0;
+    LOCK_4351 = 1;
+    Timer0_ms(100);
+    LOCK_4351 = 0;
+    Timer0_ms(100);
+    EA = 1;
 }
