@@ -44,7 +44,7 @@ void Port_IO_Init()
     // P0.6  -  Skipped,     Open-Drain, Digital
     // P0.7  -  Skipped,     Push-Pull,  Digital
 
-    // P1.0  -  Skipped,     Open-Drain, Digital
+    // P1.0  -  Skipped,     Push-Pull,  Digital
     // P1.1  -  Skipped,     Open-Drain, Digital
     // P1.2  -  Skipped,     Push-Pull,  Digital
     // P1.3  -  Skipped,     Push-Pull,  Digital
@@ -53,20 +53,21 @@ void Port_IO_Init()
     // P1.6  -  MOSI (SPI0), Push-Pull,  Digital
     // P1.7  -  Unassigned,  Push-Pull,  Digital
 
-    // P2.0  -  Unassigned,  Push-Pull,  Digital
-    // P2.1  -  Unassigned,  Push-Pull,  Digital
-    // P2.2  -  Unassigned,  Push-Pull,  Digital
-    // P2.3  -  Unassigned,  Push-Pull,  Digital
-    // P2.4  -  Unassigned,  Push-Pull,  Digital
-    // P2.5  -  Unassigned,  Push-Pull,  Digital
+    // P2.0  -  Skipped,     Open-Drain, Digital
+    // P2.1  -  Skipped,     Push-Pull,  Digital
+    // P2.2  -  Skipped,     Push-Pull,  Digital
+    // P2.3  -  Skipped,     Push-Pull,  Digital
+    // P2.4  -  Skipped,     Push-Pull,  Digital
+    // P2.5  -  Skipped,     Push-Pull,  Digital
     // P2.6  -  Unassigned,  Push-Pull,  Digital
     // P2.7  -  Unassigned,  Open-Drain, Digital
 
     P0MDOUT   = 0x93;
-    P1MDOUT   = 0xDC;
-    P2MDOUT   = 0x7F;
+    P1MDOUT   = 0xDD;
+    P2MDOUT   = 0x7E;
     P0SKIP    = 0xCF;
     P1SKIP    = 0x0F;
+    P2SKIP    = 0x3F;
     XBR0      = 0x03;
     XBR1      = 0x40;
 }
@@ -79,7 +80,7 @@ void Oscillator_Init()
 void Interrupts_Init()
 {
     IT01CF    = 0x02;
-    IE        = 0x91;
+    IE        = 0x90;
 }
 
 // Initialization function for device,

@@ -37,7 +37,8 @@ sbit DATA = P1^6;	// MOSI (output)
 sbit LD_4351 = P1^5;	// Lock detect for ADF4351BCPZ (input) (MISO)
 
 // Config pins for control MC74HCT160D
-sbit PE_COUNTER = P2^0;	// Parallel enable write data into counter (active low) (output)
+sbit CEP_COUNTER = P1^0;	// Count enable (active high) (output)
+//sbit PE_COUNTER = P2^0;	// Parallel enable write data into counter (active low) (output)
 sbit MR_COUNTER = P2^5;	// Reset counter (data don't cleared) (active low) (output)
 sbit D0_COUNTER = P2^4;	// Data Low (output)
 sbit D1_COUNTER = P2^3;	// Data Middle (output)
@@ -148,6 +149,8 @@ void Timer0_us (unsigned us);
 void SPI_send(unsigned char Data);
 // Program ADF4002BCPZ as 128-divider
 void ADF4002_divider(void);
+// Strobe Selector init (MC74HCT160D)
+void strobeSelectInit(void);
 // Strobe Selector (MC74HCT160D)
 void strobeSelect(char divFactor);
 // Gain set (AD8366ACPZ)
@@ -188,7 +191,7 @@ void lockDetect(void);
 void main(void)
 {
     Init_Device();
-    IT0 = 1;    // Ext. interrupt 1-0    
+    //IT0 = 1;    // Ext. interrupt 1-0    
 
     // LEDs init
     POWER_ON = 1;
@@ -207,6 +210,7 @@ void main(void)
     ADF4002_divider();  // Init divider
     ADF4351_init();    // Init synth
     gainIQInit();       // Init Gain I, Q
+	strobeSelectInit(); // Init Strobe Select	
     
     while(1)
     {
@@ -321,75 +325,102 @@ void ADF4002_divider(void)
     blink_SPI_LED(3);   // Packets send indicate
 }
 
-// Strobe Selector (MC74HCT160D)
-void strobeSelect(unsigned char divFactor)
+// Strobe Selector init (MC74HCT160D)
+void strobeSelectInit(void)
 {
-    PE_COUNTER = 0;	// Parallel enable write data into counter
     MR_COUNTER = 0;	// Reset counter (data don't cleared)
     Timer0_ms(1);
-
+    MR_COUNTER = 1;	// Cancel Reset counter    
+    Timer0_ms(1);	
+    CEP_COUNTER = 0;// Count disable
+}
+    
+// Strobe Selector (MC74HCT160D)
+void strobeSelect(unsigned char divFactor)
+{    
     switch(divFactor)
     {
     case 1:
-        D0_COUNTER = 1;	// Data Low
-        D1_COUNTER = 0;	// Data Middle
-        D2_COUNTER = 0;	// Data Middle
-        D3_COUNTER = 1;	// Data High
+        CEP_COUNTER = 0;	// Count disable
         break;
     case 2:
+		CEP_COUNTER = 0;	// Count disable
+		Timer0_ms(1);
         D0_COUNTER = 0;	// Data Low
         D1_COUNTER = 0;	// Data Middle
         D2_COUNTER = 0;	// Data Middle
         D3_COUNTER = 1;	// Data High
+		Timer0_ms(1);
+		CEP_COUNTER = 1;// Count enable
         break;
     case 3:
+		CEP_COUNTER = 0;	// Count disable
+		Timer0_ms(1);
         D0_COUNTER = 1;	// Data Low
         D1_COUNTER = 1;	// Data Middle
         D2_COUNTER = 1;	// Data Middle
         D3_COUNTER = 0;	// Data High
+		Timer0_ms(1);
+		CEP_COUNTER = 1;// Count enable
         break;
     case 4:
+		CEP_COUNTER = 0;	// Count disable
+		Timer0_ms(1);
         D0_COUNTER = 0;	// Data Low
         D1_COUNTER = 1;	// Data Middle
         D2_COUNTER = 1;	// Data Middle
         D3_COUNTER = 0;	// Data High
+		Timer0_ms(1);
+		CEP_COUNTER = 1;// Count enable
         break;
         /*case 5:
+		CEP_COUNTER = 1;// Count enable
+		Timer0_ms(1);
         D0_COUNTER = 1;	// Data Low
         D1_COUNTER = 0;	// Data Middle
         D2_COUNTER = 1;	// Data Middle
         D3_COUNTER = 0;	// Data High
         break;*/
     case 6:
+		CEP_COUNTER = 0;	// Count disable
+		Timer0_ms(1);
         D0_COUNTER = 0;	// Data Low
         D1_COUNTER = 0;	// Data Middle
         D2_COUNTER = 1;	// Data Middle
         D3_COUNTER = 0;	// Data High
+		Timer0_ms(1);
+		CEP_COUNTER = 1;// Count enable
         break;
         /*case 7:
+		CEP_COUNTER = 1;// Count enable
+		Timer0_ms(1);
         D0_COUNTER = 1;	// Data Low
         D1_COUNTER = 1;	// Data Middle
         D2_COUNTER = 0;	// Data Middle
         D3_COUNTER = 0;	// Data High
         break;*/
     case 8:
+		CEP_COUNTER = 0;	// Count disable
+		Timer0_ms(1);
         D0_COUNTER = 0;	// Data Low
         D1_COUNTER = 1;	// Data Middle
         D2_COUNTER = 0;	// Data Middle
         D3_COUNTER = 0;	// Data High
+		Timer0_ms(1);
+		CEP_COUNTER = 1;// Count enable
         break;
     case 9:
+		CEP_COUNTER = 0;	// Count disable
+		Timer0_ms(1);
         D0_COUNTER = 1;	// Data Low
         D1_COUNTER = 0;	// Data Middle
         D2_COUNTER = 0;	// Data Middle
         D3_COUNTER = 0;	// Data High
+		Timer0_ms(1);
+		CEP_COUNTER = 1;// Count enable
         break;
     default: break;
-    }
-
-    Timer0_ms(1);
-    PE_COUNTER = 1;	// Parallel disable write data into counter
-    MR_COUNTER = 1;	// Cancel Reset counter
+    }        
 }
 
 // Gain set (AD8366ACPZ)
